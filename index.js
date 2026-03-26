@@ -5,8 +5,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:UMFKsIdAjbxvAJlBsFyBLGNSPwFcCcXb@postgres.railway.internal:5432/railway',
+  ssl: false,
 });
 
 async function initDb() {
