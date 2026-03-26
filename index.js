@@ -66,6 +66,18 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
+app.get("/export", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM meetings ORDER BY date DESC");
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", 'attachment; filename="meetings.json"');
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error exporting meetings:", err.message);
+    res.status(500).json({ success: false, error: "Failed to export meetings" });
+  }
+});
+
 app.listen(PORT, async () => {
   const dbUrl = process.env.DATABASE_URL;
   if (dbUrl) {
