@@ -1,0 +1,12 @@
+{
+  "name": "knowledge-guy",
+  "version": "1.0.0",
+  "description": "Circleback webhook receiver for meeting data",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}
