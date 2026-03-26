@@ -1,43 +1,72 @@
 const express = require("express");
-const fs = require("fs");
-const path = require("path");
+const { Pool } = require("pg");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const MEETINGS_FILE = path.join(__dirname, "meetings.json");
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
+
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS meetings (
+      id TEXT PRIMARY KEY,
+      name TEXT,
+      date TIMESTAMPTZ,
+      attendees JSONB,
+      notes JSONB,
+      action_items JSONB,
+      transcript JSONB,
+      tags JSONB
+    )
+  `);
+  console.log("Database initialized — meetings table ready");
+}
 
 app.use(express.json());
 
-app.post("/webhook", (req, res) => {
+app.post("/webhook", async (req, res) => {
   const meeting = req.body;
 
   if (!meeting || typeof meeting !== "object" || !meeting.id) {
     return res.status(400).json({ success: false, error: "Invalid meeting data" });
   }
 
-  let meetings = [];
   try {
-    if (fs.existsSync(MEETINGS_FILE)) {
-      const raw = fs.readFileSync(MEETINGS_FILE, "utf-8");
-      meetings = JSON.parse(raw);
-    }
+    await pool.query(
+      `INSERT INTO meetings (id, name, date, attendees, notes, action_items, transcript, tags)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT (id) DO UPDATE SET
+         name = EXCLUDED.name,
+         date = EXCLUDED.date,
+         attendees = EXCLUDED.attendees,
+         notes = EXCLUDED.notes,
+         action_items = EXCLUDED.action_items,
+         transcript = EXCLUDED.transcript,
+         tags = EXCLUDED.tags`,
+      [
+        meeting.id,
+        meeting.name || null,
+        meeting.date || meeting.createdAt || null,
+        JSON.stringify(meeting.attendees || []),
+        JSON.stringify(meeting.notes || []),
+        JSON.stringify(meeting.action_items || meeting.actionItems || []),
+        JSON.stringify(meeting.transcript || []),
+        JSON.stringify(meeting.tags || []),
+      ]
+    );
+
+    console.log(`Saved meeting: "${meeting.name}" (${meeting.date || meeting.createdAt})`);
+    res.json({ success: true });
   } catch (err) {
-    console.error("Error reading meetings.json:", err.message);
+    console.error("Error saving meeting:", err.message);
+    res.status(500).json({ success: false, error: "Failed to save meeting" });
   }
-
-  meetings.push(meeting);
-
-  try {
-    fs.writeFileSync(MEETINGS_FILE, JSON.stringify(meetings, null, 2));
-  } catch (err) {
-    console.error("Error writing meetings.json:", err.message);
-    return res.status(500).json({ success: false, error: "Failed to save meeting" });
-  }
-
-  console.log(`Saved meeting: "${meeting.name}" (${meeting.createdAt})`);
-  res.json({ success: true });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
+  await initDb();
   console.log(`Webhook receiver listening on port ${PORT}`);
 });
