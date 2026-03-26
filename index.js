@@ -67,6 +67,13 @@ app.post("/webhook", async (req, res) => {
 });
 
 app.listen(PORT, async () => {
+  const dbUrl = process.env.DATABASE_URL;
+  if (dbUrl) {
+    const masked = dbUrl.replace(/:([^@]+)@/, ":****@");
+    console.log(`Connecting to database: ${masked}`);
+  } else {
+    console.error("WARNING: DATABASE_URL is not set — pg will fall back to localhost!");
+  }
   await initDb();
   console.log(`Webhook receiver listening on port ${PORT}`);
 });
